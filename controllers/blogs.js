@@ -1,8 +1,10 @@
 const blogsRouter = require('express').Router();
 const Blog = require('../models/blog');
+const User = require('../models/user');
+const jsw = require('jsonwebtoken');
 
 blogsRouter.get('/', async (req, res) => {
-  const blogList = await Blog.find({});
+  const blogList = await Blog.find({}).populate('user', { username: 1, name: 1, id: 1 });
 
   res.json(blogList.map(b => b.toJSON()));
 });
@@ -13,30 +15,59 @@ blogsRouter.get('/:id', async (req, res) => {
   res.json(blog.toJSON());
 });
 
-blogsRouter.post('/', async (req, res) => {
+blogsRouter.post('/', async (req, res, next) => {
   const body = req.body;
+  const token = req.token;
+
+  if(!token){
+    return res.status(401).json({ error: 'invalid tocken' });
+  }
+  const decodeToken = jsw.verify(token, process.env.SECRET);
+
+  if(!decodeToken){
+    return res.status(401).json({ error: 'invalid tocken' });
+  }
 
   if(!body.title || !body.url){
     return res.status(400).end();
   }
+
+  const user = await User.findById(decodeToken.id);
+
   const newBlog = {
     title: body.title,
     author: body.author,
     url: body.url,
     likes: body.likes || 0,
+    user: user._id,
   };
 
   const blog = new Blog(newBlog);
+  try {
+    const blogAdd = await blog.save();
+    user.blogs = user.blogs.concat(blogAdd._id);
 
-  const blogAdd = await blog.save();
-
-  res.status(200).json(blogAdd.toJSON());
+    await user.save();
+    res.status(200).json(blogAdd.toJSON());
+  } catch (e) {
+    next(e);
+  }
 });
 
 blogsRouter.delete('/:id', async (req, res) => {
-  await Blog.findByIdAndRemove(req.params.id);
+  const removeBlog = await Blog.findById(req.params.id);
+  if(!req.token){
+    return res.status(401).json({ error: 'invalid token' });
+  }
 
-  res.status(204).end();
+  const decodeToken = jsw.verify(req.token, process.env.SECRET);
+
+  if(decodeToken.id === removeBlog.user.toString()){
+    await Blog.findByIdAndRemove(req.params.id);
+    return res.status(204).end();
+  }
+
+  return res.status(401).json({ error: 'invalid token' });
 });
 
 blogsRouter.put('/:id', async (req, res) => {

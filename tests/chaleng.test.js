@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Blog = require('../models/blog');
 const supertest = require('supertest');
 const app = require('../app');
+const User = require('../models/user');
 
 const api = supertest(app);
 
@@ -145,6 +146,18 @@ describe('api test', () => {
 
 });
 
+describe('user chack', () => {
+  beforeEach(async () => {
+    await User.deleteMany({});
+    const newUser = new User({ username: 'root', password: 'secret' });
+    await newUser.save();
+  });
+
+  test('should add user in db', () => {
+
+  });
+
+});
 
 
 

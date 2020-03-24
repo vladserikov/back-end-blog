@@ -18,6 +18,7 @@ blogsRouter.get('/:id', async (req, res) => {
 blogsRouter.post('/', async (req, res, next) => {
   const body = req.body;
   const token = req.token;
+  //   console.log(body, req.headers);
 
   if(!token){
     return res.status(401).json({ error: 'invalid tocken' });
@@ -29,14 +30,14 @@ blogsRouter.post('/', async (req, res, next) => {
   }
 
   if(!body.title || !body.url){
-    return res.status(400).end();
+    return res.status(400).json({ error: 'not url or title' });
   }
 
   const user = await User.findById(decodeToken.id);
 
   const newBlog = {
     title: body.title,
-    author: body.author,
+    author: body.author || user.name,
     url: body.url,
     likes: body.likes || 0,
     user: user._id,
